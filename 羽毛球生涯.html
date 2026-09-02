@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏸 完美羽毛球选手 · BWF生涯 V3.1</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+body{background:#f1f5f9;color:#1e293b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+button{user-select:none}
+.news-card{animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:7px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
+.stat-box{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:9px;text-align:center}
+.glow{box-shadow:0 0 0 2px rgba(34,197,94,.12),0 10px 25px rgba(15,23,42,.08)}
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 sm:p-4">
+<div id="game-app" class="w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 flex flex-col min-h-[800px]">
+<header class="bg-gradient-to-r from-emerald-700 to-green-600 text-white px-5 py-4 flex justify-between items-center">
+  <div>
+    <h1 class="font-black text-base sm:text-lg tracking-wide">🏸 完美羽毛球选手 · BWF生涯 V3.1</h1>
+    <p id="sub-header-info" class="text-xs text-emerald-100 mt-1"></p>
+  </div>
+  <div class="flex items-center gap-2">
+    <button onclick="resetGame(); return false;" class="text-xs bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-full font-semibold">🔄 新档</button>
+    <span id="header-badge" class="text-xs bg-black/20 px-3 py-1 rounded-full font-semibold border border-white/20">创建选手</span>
+  </div>
+</header>
+<main id="main-content" class="p-5 flex-1 overflow-y-auto max-h-[82vh]"></main>
+</div>
+
+<script>
+// ============================================================
+//  BWF 羽毛球生涯模式 V3.1
+//  平衡：降低AI强度，历史巨星概率28%，基础OVR 68，随机性适当回调
+// ============================================================
+
+const ATTR_KEYS = ['speed','power','stamina','technique','mental','agility','reflex'];
+const ATTR_CN = { speed:'速度', power:'力量', stamina:'耐力', technique:'技术', mental:'心理', agility:'敏捷', reflex:'反应' };
+function getAttrCN(k){ return ATTR_CN[k] || k; }
+
+const COUNTRIES = ['中国','印尼','日本','丹麦','马来西亚','印度','韩国','中华台北','泰国','西班牙','新加坡','中国香港','加拿大','法国','英格兰','德国'];
+
+// ---- 真实选手名单 ----
+const MALE_PLAYERS = [
+  {name:'安赛龙', country:'丹麦'},
+  {name:'石宇奇', country:'中国'},
+  {name:'李诗沣', country:'中国'},
+  {name:'陆光祖', country:'中国'},
+  {name:'翁泓阳', country:'中国'},
+  {name:'赵俊鹏', country:'中国'},
+  {name:'林丹', country:'中国'},
+  {name:'谌龙', country:'中国'},
+  {name:'李宗伟', country:'马来西亚'},
+  {name:'桃田贤斗', country:'日本'},
+  {name:'金廷', country:'印尼'},
+  {name:'乔纳坦', country:'印尼'},
+  {name:'周天成', country:'中华台北'},
+  {name:'伍家朗', country:'中国香港'},
+  {name:'西本拳太', country:'日本'},
+  {name:'常山干太', country:'日本'},
+  {name:'普兰诺伊', country:'印度'},
+  {name:'斯里坎特', country:'印度'},
+  {name:'昆拉武特', country:'泰国'},
+  {name:'拉克什亚', country:'印度'},
+  {name:'安东森', country:'丹麦'},
+  {name:'格姆克', country:'丹麦'},
+  {name:'维廷胡斯', country:'丹麦'},
+  {name:'王子维', country:'中华台北'},
+  {name:'黄智勇', country:'马来西亚'},
+  {name:'刘国伦', country:'马来西亚'},
+  {name:'詹俊为', country:'马来西亚'},
+  {name:'苏吉亚托', country:'印尼'},
+  {name:'波波夫', country:'法国'},
+  {name:'莱维德斯', country:'法国'},
+];
+
+const FEMALE_PLAYERS = [
+  {name:'陈雨菲', country:'中国'},
+  {name:'何冰娇', country:'中国'},
+  {name:'王祉怡', country:'中国'},
+  {name:'韩悦', country:'中国'},
+  {name:'张艺曼', country:'中国'},
+  {name:'戴资颖', country:'中华台北'},
+  {name:'马林', country:'西班牙'},
+  {name:'山口茜', country:'日本'},
+  {name:'奥原希望', country:'日本'},
+  {name:'辛杜', country:'印度'},
+  {name:'安洗莹', country:'韩国'},
+  {name:'金佳恩', country:'韩国'},
+  {name:'李美妙', country:'泰国'},
+  {name:'布桑兰', country:'泰国'},
+  {name:'大堀彩', country:'日本'},
+  {name:'高桥沙也加', country:'日本'},
+  {name:'玛莉斯卡', country:'印尼'},
+  {name:'因达农', country:'泰国'},
+  {name:'张蓓雯', country:'美国'},
+  {name:'吴堇溦', country:'马来西亚'},
+  {name:'吉尔莫', country:'苏格兰'},
+  {name:'李文珊', country:'加拿大'},
+  {name:'米娅', country:'丹麦'},
+  {name:'杰克斯菲德', country:'丹麦'},
+  {name:'阿祖尔门迪', country:'西班牙'},
+  {name:'巴托梅内', country:'法国'},
+  {name:'科塞特卡娅', country:'俄罗斯'},
+  {name:'阮翠玲', country:'越南'},
+  {name:'武氏妆', country:'越南'},
+];
+
+// 历史巨星（用于抽签和AI对手）
+const HISTORICAL_STARS = [
+  // 男单
+  {name:'林丹', country:'中国', gender:'男', type:'单打', attrs:{speed:88,power:85,stamina:90,technique:92,mental:95,agility:86,reflex:89}},
+  {name:'李宗伟', country:'马来西亚', gender:'男', type:'单打', attrs:{speed:90,power:82,stamina:88,technique:94,mental:88,agility:92,reflex:91}},
+  {name:'谌龙', country:'中国', gender:'男', type:'单打', attrs:{speed:82,power:88,stamina:86,technique:90,mental:90,agility:80,reflex:84}},
+  {name:'安赛龙', country:'丹麦', gender:'男', type:'单打', attrs:{speed:86,power:92,stamina:88,technique:88,mental:85,agility:84,reflex:86}},
+  {name:'桃田贤斗', country:'日本', gender:'男', type:'单打', attrs:{speed:82,power:78,stamina:92,technique:92,mental:86,agility:84,reflex:86}},
+  {name:'金廷', country:'印尼', gender:'男', type:'单打', attrs:{speed:94,power:80,stamina:86,technique:86,mental:80,agility:90,reflex:88}},
+  {name:'乔纳坦', country:'印尼', gender:'男', type:'单打', attrs:{speed:84,power:82,stamina:84,technique:88,mental:82,agility:86,reflex:84}},
+  {name:'石宇奇', country:'中国', gender:'男', type:'单打', attrs:{speed:84,power:86,stamina:82,technique:88,mental:80,agility:82,reflex:84}},
+  {name:'李诗沣', country:'中国', gender:'男', type:'单打', attrs:{speed:82,power:84,stamina:86,technique:86,mental:84,agility:80,reflex:82}},
+  {name:'周天成', country:'中华台北', gender:'男', type:'单打', attrs:{speed:80,power:84,stamina:90,technique:84,mental:82,agility:78,reflex:80}},
+  // 女单
+  {name:'张宁', country:'中国', gender:'女', type:'单打', attrs:{speed:82,power:84,stamina:88,technique:90,mental:92,agility:82,reflex:84}},
+  {name:'谢杏芳', country:'中国', gender:'女', type:'单打', attrs:{speed:84,power:82,stamina:86,technique:92,mental:88,agility:84,reflex:86}},
+  {name:'李雪芮', country:'中国', gender:'女', type:'单打', attrs:{speed:86,power:84,stamina:86,technique:90,mental:88,agility:84,reflex:86}},
+  {name:'戴资颖', country:'中华台北', gender:'女', type:'单打', attrs:{speed:88,power:80,stamina:84,technique:94,mental:86,agility:92,reflex:90}},
+  {name:'马林', country:'西班牙', gender:'女', type:'单打', attrs:{speed:82,power:90,stamina:90,technique:86,mental:90,agility:80,reflex:82}},
+  {name:'辛杜', country:'印度', gender:'女', type:'单打', attrs:{speed:80,power:88,stamina:86,technique:86,mental:84,agility:78,reflex:80}},
+  {name:'奥原希望', country:'日本', gender:'女', type:'单打', attrs:{speed:86,power:76,stamina:92,technique:90,mental:84,agility:88,reflex:86}},
+  {name:'山口茜', country:'日本', gender:'女', type:'单打', attrs:{speed:88,power:74,stamina:88,technique:88,mental:82,agility:90,reflex:88}},
+  {name:'陈雨菲', country:'中国', gender:'女', type:'单打', attrs:{speed:84,power:82,stamina:86,technique:88,mental:86,agility:82,reflex:84}},
+  {name:'何冰娇', country:'中国', gender:'女', type:'单打', attrs:{speed:80,power:86,stamina:84,technique:86,mental:82,agility:78,reflex:80}},
+  {name:'王祉怡', country:'中国', gender:'女', type:'单打', attrs:{speed:82,power:80,stamina:86,technique:86,mental:82,agility:82,reflex:82}},
+  {name:'韩悦', country:'中国', gender:'女', type:'单打', attrs:{speed:80,power:78,stamina:84,technique:84,mental:80,agility:80,reflex:80}},
+];
+
+// ---- 赛事 ----
+const TOURNAMENTS = [
+  {name:'全英公开赛', tier:'超级1000', points:1200, prize:125},
+  {name:'印尼公开赛', tier:'超级1000', points:1200, prize:125},
+  {name:'中国公开赛', tier:'超级1000', points:1200, prize:125},
+  {name:'马来西亚公开赛', tier:'超级1000', points:1200, prize:125},
+  {name:'日本公开赛', tier:'超级750', points:1100, prize:85},
+  {name:'丹麦公开赛', tier:'超级750', points:1100, prize:85},
+  {name:'法国公开赛', tier:'超级750', points:1100, prize:85},
+  {name:'中国香港公开赛', tier:'超级500', points:920, prize:42},
+  {name:'泰国公开赛', tier:'超级500', points:920, prize:42},
+  {name:'新加坡公开赛', tier:'超级500', points:920, prize:42},
+  {name:'韩国公开赛', tier:'超级500', points:920, prize:42},
+  {name:'印度公开赛', tier:'超级500', points:920, prize:42},
+  {name:'加拿大公开赛', tier:'超级500', points:920, prize:42},
+  {name:'中华台北公开赛', tier:'超级300', points:700, prize:21},
+  {name:'瑞士公开赛', tier:'超级300', points:700, prize:21},
+  {name:'西班牙大师赛', tier:'超级300', points:700, prize:21},
+  {name:'德国公开赛', tier:'超级300', points:700, prize:21},
+  {name:'澳大利亚公开赛', tier:'超级300', points:700, prize:21},
+];
+
+function getSeasonTournaments() {
+  const shuffled = shuffle([...TOURNAMENTS]);
+  return shuffled.slice(0, 16).map((t, i) => ({ ...t, id: i, played: false, result: null }));
+}
+
+// ---- 工具 ----
+function clone(v){ return JSON.parse(JSON.stringify(v)); }
+function rand(a,b){ return Math.random()*(b-a)+a; }
+function rint(a,b){ return Math.floor(rand(a,b+1)); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
+
+function calcOVR(attrs){
+  const vals = ATTR_KEYS.map(k => clamp(attrs[k]||50,1,99)).sort((a,b)=>b-a);
+  let w = vals[0]*.28 + vals[1]*.22 + vals[2]*.18 + vals[3]*.14 + vals[4]*.08 + vals[5]*.05 + vals[6]*.05;
+  return clamp(Math.round(w*1.12+4), 60, 99);
+}
+
+// 选手池（用于普通对手生成）
+let malePool = [], femalePool = [];
+function initNamePools() {
+  malePool = shuffle([...MALE_PLAYERS]);
+  femalePool = shuffle([...FEMALE_PLAYERS]);
+}
+function getOpponent(gender) {
+  initNamePools();
+  let pool = gender === '男' ? malePool : femalePool;
+  if(pool.length === 0) {
+    if(gender === '男') { malePool = shuffle([...MALE_PLAYERS]); pool = malePool; }
+    else { femalePool = shuffle([...FEMALE_PLAYERS]); pool = femalePool; }
+  }
+  return pool.pop();
+}
+
+// ---- AI选手管理（用于排名积分） ----
+let aiPlayers = [];
+
+function initAIPlayers(gender) {
+  const pool = gender === '男' ? MALE_PLAYERS : FEMALE_PLAYERS;
+  const selected = shuffle([...pool]).slice(0, 20);
+  aiPlayers = selected.map(p => {
+    const ovr = clamp(65 + rint(0, 25), 65, 92);
+    const age = rint(19, 25);
+    return {
+      name: p.name,
+      country: p.country,
+      gender: gender,
+      ovr: ovr,
+      age: age,
+      points: 0,
+    };
+  });
+}
+
+function simulateAIPerformance(ai, tournament) {
+  const rounds = 5;
+  const strength = ai.ovr / 100;
+  let wonRounds = 0;
+  for (let r = 0; r < rounds; r++) {
+    const winProb = strength * (0.7 + 0.3 * (1 - r/rounds));
+    if (Math.random() < winProb) {
+      wonRounds++;
+    } else {
+      break;
+    }
+  }
+  let pts = 0;
+  if (wonRounds === rounds) {
+    pts = tournament.points;
+  } else {
+    const ratio = 0.1 + 0.6 * (wonRounds / rounds);
+    pts = Math.floor(tournament.points * ratio);
+  }
+  return pts;
+}
+
+function updateAIPlayersForTournament(tournament) {
+  if (!tournament) return;
+  aiPlayers.forEach(ai => {
+    const pts = simulateAIPerformance(ai, tournament);
+    ai.points += pts;
+  });
+}
+
+// ---- AI年龄衰减（30岁开始，35岁退役） ----
+function applyAIAgeDecay(ai) {
+  const age = ai.age;
+  if (age < 30) return false;
+  if (age >= 35) return true;
+  let drop = 0;
+  if (age <= 32) drop = 1;
+  else if (age <= 34) drop = 2;
+  ai.ovr = clamp(ai.ovr - drop, 50, 99);
+  if (ai.ovr <= 55) return true;
+  return false;
+}
+
+// ---- 自建选手年龄衰减（30岁开始，每年OVR下降2点，35岁退役） ----
+function applyUserAgeDecay() {
+  const age = STATE.age;
+  if (age < 30) return false;
+  if (age >= 35) {
+    addNews(`🛑 强制退役`, `${STATE.playerName} 年满35岁，根据规则退役。`, '退役');
+    return true;
+  }
+  let targetOVR = STATE.finalOVR - 2;
+  if (targetOVR < 55) targetOVR = 55;
+  let safety = 0;
+  while (calcOVR(STATE.attrs) > targetOVR && safety < 100) {
+    let key = pick(ATTR_KEYS);
+    if (STATE.attrs[key] > 35) {
+      STATE.attrs[key]--;
+    }
+    safety++;
+  }
+  STATE.finalOVR = calcOVR(STATE.attrs);
+  addNews(`📉 年龄衰退`, `${STATE.playerName} 已${age}岁，身体机能下降，OVR降至${STATE.finalOVR}（-2）。`, '衰减');
+  if (STATE.finalOVR <= 55) {
+    addNews(`🛑 能力下滑退役`, `${STATE.playerName} 因能力下滑严重，选择退役。`, '退役');
+    return true;
+  }
+  return false;
+}
+
+// ---- 初始状态 ----
+const INITIAL_STATE = {
+  step: 'create',
+  seasonYear: 2026,
+  careerSeason: 1,
+  age: 19,
+  playerName: '自建选手',
+  gender: '男',
+  country: '中国',
+  attrs: {speed:50, power:50, stamina:50, technique:50, mental:50, agility:50, reflex:50},
+  finalOVR: 0,
+  rerollsLeft: 3,
+  currentAttrIndex: 0,
+
+  careerStats: {
+    gp:0, wins:0, losses:0,
+    titles:0, super1000:0, super750:0, super500:0, super300:0,
+    weeksAtNo1:0, careerPrize:0, bestRank:999
+  },
+  seasonStats: { gp:0, wins:0, losses:0, titles:0, points:0, rank:999 },
+  tournaments: [],
+  currentTournament: null,
+  tournamentIndex: 0,
+  matchLog: [],
+
+  news: [],
+  eventHistory: [],
+
+  rankPoints: 0,
+
+  worldRank: 50,
+
+  remainingPoints: 0,
+  tempAllocated: {},
+
+  userInjury: {gamesOut:0, name:'', detail:'', ovrDrop:0},
+  userInjuryEventsThisSeason: 0,
+  seasonEventsTriggered: 0,
+
+  worldRankings: [],
+};
+
+let STATE = clone(INITIAL_STATE);
+
+// ---- 核心函数 ----
+function resetGame(){
+  STATE = clone(INITIAL_STATE);
+  STATE.step = 'create';
+  STATE.tournaments = getSeasonTournaments();
+  initNamePools();
+  aiPlayers = [];
+  render();
+}
+
+function addNews(title,body,type='新闻'){
+  if(!STATE.news) STATE.news=[];
+  STATE.news.unshift({ time: `${STATE.seasonYear}-${String(rint(1,12)).padStart(2,'0')}-${String(rint(1,28)).padStart(2,'0')}`, title, body, type });
+  if(STATE.news.length>80) STATE.news.length=80;
+}
+
+// ---- 比赛模拟（平衡版：随机性适当回调） ----
+function simulateMatch(p1, p2){
+  const ovr1 = p1.ovr||75, ovr2 = p2.ovr||75;
+  const a1 = p1.attrs||STATE.attrs, a2 = p2.attrs||{speed:50,power:50,stamina:50,technique:50,mental:50,agility:50,reflex:50};
+  const bonus1 = (a1.speed||50)/100*0.15 + (a1.power||50)/100*0.15 + (a1.technique||50)/100*0.2 + (a1.mental||50)/100*0.1;
+  const bonus2 = (a2.speed||50)/100*0.15 + (a2.power||50)/100*0.15 + (a2.technique||50)/100*0.2 + (a2.mental||50)/100*0.1;
+  let s1 = ovr1/100*0.6 + bonus1*0.4, s2 = ovr2/100*0.6 + bonus2*0.4;
+  // 随机波动系数略微放宽，给弱者更多机会（0.93~1.07）
+  s1 *= (0.93 + Math.random() * 0.14);
+  s2 *= (0.93 + Math.random() * 0.14);
+  if(p1.isUser) s1 *= 1.02;
+  if(p2.isUser) s2 *= 1.02;
+  const p1Win = s1/(s1+s2);
+  let sets=[], p1Sets=0, p2Sets=0;
+  while(p1Sets<2 && p2Sets<2){
+    let sc1=0, sc2=0;
+    while(sc1<21 && sc2<21){ if(Math.random()<p1Win) sc1++; else sc2++; }
+    while(Math.abs(sc1-sc2)<2){ if(Math.random()<p1Win) sc1++; else sc2++; }
+    sets.push({p1:sc1, p2:sc2});
+    if(sc1>sc2) p1Sets++; else p2Sets++;
+  }
+  const winner = p1Sets>p2Sets ? p1 : p2;
+  const loser = p1Sets>p2Sets ? p2 : p1;
+  return { winner, loser, score: sets.map(s=>`${s.p1}-${s.p2}`).join(' '), p1Sets, p2Sets, sets };
+}
+
+// ---- 生成对手（平衡版：历史巨星概率28%，基础OVR 68） ----
+function generateOpponent(round, tier, gender) {
+  // 28%概率选择历史巨星（从40%下调）
+  if (Math.random() < 0.28) {
+    const candidates = HISTORICAL_STARS.filter(s => s.gender === gender && s.type === '单打');
+    if (candidates.length > 0) {
+      const star = pick(candidates);
+      const attrs = {};
+      ATTR_KEYS.forEach(k => {
+        let val = star.attrs[k] || 50;
+        // 微调波动范围缩小，避免出现极端低值
+        val = clamp(val + rint(-2, 2), 45, 99);
+        attrs[k] = val;
+      });
+      const ovr = calcOVR(attrs);
+      return {
+        name: star.name,
+        country: star.country,
+        ovr: ovr,
+        attrs: attrs,
+        isUser: false,
+        isStar: true
+      };
+    }
+  }
+  // 普通对手：基础值从72下调至68，后期成长略减
+  const base = 68 + round * 2 + (tier === '超级1000' ? 6 : tier === '超级750' ? 4 : tier === '超级500' ? 2 : 0);
+  const ovr = clamp(base + rint(-5, 5), 58, 95);
+  const player = getOpponent(gender);
+  return {
+    name: player.name,
+    country: player.country,
+    ovr: ovr,
+    attrs: {
+      speed: clamp(50 + rint(-15, 20), 30, 99),
+      power: clamp(50 + rint(-15, 20), 30, 99),
+      stamina: clamp(50 + rint(-15, 20), 30, 99),
+      technique: clamp(50 + rint(-15, 20), 30, 99),
+      mental: clamp(50 + rint(-15, 20), 30, 99),
+      agility: clamp(50 + rint(-15, 20), 30, 99),
+      reflex: clamp(50 + rint(-15, 20), 30, 99),
+    },
+    isUser: false,
+    isStar: false
+  };
+}
+
+const ROUND_NAMES = ['1/16决赛（32强）', '1/8决赛（16强）', '1/4决赛', '半决赛', '决赛'];
+
+function simulateOneTournament() {
+  let tList = STATE.tournaments;
+  if (!tList || tList.length === 0) { STATE.tournaments = getSeasonTournaments(); STATE.tournamentIndex = 0; render(); return null; }
+  if (tList.every(t => t.played)) { finishSeason(); return null; }
+  let idx = STATE.tournamentIndex;
+  while (idx < tList.length && tList[idx].played) idx++;
+  if (idx >= tList.length) { finishSeason(); return null; }
+  const tourn = tList[idx];
+  STATE.currentTournament = tourn;
+  STATE.tournamentIndex = idx;
+
+  let userAvailable = true;
+  if (STATE.userInjury && STATE.userInjury.gamesOut > 0) {
+    userAvailable = false;
+    STATE.userInjury.gamesOut--;
+    addNews(`📌 伤病休战`, `${STATE.playerName} 因${STATE.userInjury.name}，缺席${tourn.name}。`, '伤病');
+    tourn.played = true;
+    tourn.result = { champion: null, bestRound: 0, points: 0, matches: [], skipped: true };
+    updateAIPlayersForTournament(tourn);
+    updateWorldRank();
+    return null;
+  }
+
+  const rounds = 5;
+  let player = { name: STATE.playerName, country: STATE.country, ovr: STATE.finalOVR, attrs: STATE.attrs, isUser: true };
+  let results = [];
+  let wonCount = 0;
+  for (let r = 0; r < rounds; r++) {
+    if (!player) break;
+    const opp = generateOpponent(r, tourn.tier, STATE.gender);
+    const match = simulateMatch(player, opp);
+    const won = match.winner.isUser;
+    results.push({ round: r+1, roundName: ROUND_NAMES[r], opponent: opp.name, country: opp.country, ovr: opp.ovr, won, score: match.score, isStar: opp.isStar });
+    if (won) {
+      wonCount++;
+      player = { ...player };
+    } else {
+      player = null;
+      break;
+    }
+  }
+  const isChampion = player !== null && results.length === rounds && results.every(r => r.won);
+  if (isChampion) {
+    STATE.careerStats.titles++;
+    if (tourn.tier === '超级1000') STATE.careerStats.super1000++;
+    else if (tourn.tier === '超级750') STATE.careerStats.super750++;
+    else if (tourn.tier === '超级500') STATE.careerStats.super500++;
+    else if (tourn.tier === '超级300') STATE.careerStats.super300++;
+    STATE.careerStats.careerPrize = (STATE.careerStats.careerPrize || 0) + (tourn.prize || 0);
+    addNews(`🏆 ${tourn.name} 夺冠！`, `${STATE.playerName} 在${tourn.tier}赛事中夺冠！奖金 $${tourn.prize}万`, '冠军');
+  } else {
+    const best = results.filter(r => r.won).length;
+    const roundName = best < rounds ? ROUND_NAMES[best] : '决赛';
+    addNews(`📊 ${tourn.name}`, `${STATE.playerName} 止步${roundName}。`, '赛事');
+  }
+
+  let pts = 0;
+  if (isChampion) {
+    pts = tourn.points;
+  } else {
+    const wonRounds = results.filter(r => r.won).length;
+    const ratio = 0.1 + 0.6 * (wonRounds / rounds);
+    pts = Math.floor(tourn.points * ratio);
+  }
+  STATE.rankPoints += pts;
+  STATE.seasonStats.gp += results.length;
+  STATE.seasonStats.wins += results.filter(r => r.won).length;
+  STATE.seasonStats.losses += results.filter(r => !r.won).length;
+  if (isChampion) STATE.seasonStats.titles++;
+  STATE.careerStats.gp += results.length;
+  STATE.careerStats.wins += results.filter(r => r.won).length;
+  STATE.careerStats.losses += results.filter(r => !r.won).length;
+
+  tourn.played = true;
+  tourn.result = { champion: isChampion ? STATE.playerName : null, bestRound: results.filter(r => r.won).length, points: pts, matches: results };
+
+  updateAIPlayersForTournament(tourn);
+  updateWorldRank();
+
+  STATE.matchLog.unshift({ tournament: tourn.name, tier: tourn.tier, result: isChampion ? '冠军' : `${ROUND_NAMES[results.filter(r => r.won).length] || '首轮'}`, points: pts, date: `${STATE.seasonYear}-${String(rint(1,12)).padStart(2,'0')}` });
+  STATE.currentTournament = tourn;
+  return { tourn, results, isChampion, pts };
+}
+
+function simulateTournament() {
+  const result = simulateOneTournament();
+  if (result === null) {
+    if (STATE.tournaments.every(t => t.played)) {
+      finishSeason();
+    } else {
+      STATE.step = 'dashboard';
+      render();
+    }
+    return;
+  }
+  STATE.step = 'tournamentResult';
+  render();
+}
+
+// ---- 世界排名 ----
+function updateWorldRank(){
+  const allPlayers = [
+    { name: STATE.playerName, points: STATE.rankPoints, isUser: true },
+    ...aiPlayers.map(ai => ({ name: ai.name, points: ai.points, isUser: false }))
+  ];
+  allPlayers.sort((a,b) => b.points - a.points);
+  const rankMap = {};
+  allPlayers.forEach((p, idx) => {
+    rankMap[p.name] = idx + 1;
+  });
+  STATE.worldRank = rankMap[STATE.playerName] || 50;
+  if (STATE.worldRank < STATE.careerStats.bestRank) STATE.careerStats.bestRank = STATE.worldRank;
+  if (STATE.worldRank === 1) STATE.careerStats.weeksAtNo1 = (STATE.careerStats.weeksAtNo1 || 0) + 1;
+
+  const ranked = allPlayers.slice(0, 20).map((p, i) => ({
+    rank: i+1,
+    name: p.name,
+    points: Math.round(p.points),
+    isUser: p.isUser
+  }));
+  STATE.worldRankings = ranked;
+}
+
+// ---- 赛季总结 ----
+function finishSeason() {
+  updateWorldRank();
+  const season = {
+    year: STATE.seasonYear,
+    gp: STATE.seasonStats.gp,
+    wins: STATE.seasonStats.wins,
+    losses: STATE.seasonStats.losses,
+    titles: STATE.seasonStats.titles || 0,
+    rank: STATE.worldRank,
+    points: STATE.rankPoints,
+  };
+  STATE.seasonSummary = season;
+
+  STATE.rankPoints = Math.round(STATE.rankPoints * 0.7);
+  aiPlayers.forEach(ai => {
+    ai.points = Math.round(ai.points * 0.7);
+  });
+
+  STATE.step = 'seasonSummary';
+  render();
+}
+
+function goToOffseason() {
+  prepareGrowth();
+}
+
+// ---- 随机事件 ----
+function triggerRandomEvent(){
+  if (STATE.seasonEventsTriggered >= 5) return;
+  const events = [
+    {type:'injury', title:'轻微伤病', detail:'训练中扭伤', minOut:1,maxOut:3,drop:0},
+    {type:'positive', title:'状态爆发', detail:'技术全面提升', positive:true, amount:1},
+    {type:'fun', title:'趣闻', detail:'社交媒体热传', impact:'无影响'}
+  ];
+  const ev = pick(events);
+  const display = { target: STATE.playerName, title: ev.title, detail: ev.detail, impact: '' };
+  if (ev.positive) {
+    const key = pick(ATTR_KEYS);
+    STATE.attrs[key] = clamp(STATE.attrs[key] + ev.amount, 1, 99);
+    STATE.finalOVR = calcOVR(STATE.attrs);
+    display.impact = `${getAttrCN(key)}+${ev.amount}`;
+    addNews(`✨ ${STATE.playerName}：${ev.title}`, `${ev.detail}。${display.impact}`, '成长');
+  } else if (ev.type === 'injury') {
+    const out = rint(ev.minOut, ev.maxOut);
+    STATE.userInjury = { gamesOut: out, name: ev.title, detail: ev.detail, ovrDrop: 0 };
+    display.impact = `休战${out}场`;
+    addNews(`🚑 ${STATE.playerName}：${ev.title}`, `${ev.detail}。${display.impact}`, '伤病');
+  } else {
+    display.impact = '无重大影响';
+    addNews(`📰 ${STATE.playerName}：${ev.title}`, `${ev.detail}`, '花絮');
+  }
+  STATE.seasonEventsTriggered++;
+  STATE.eventHistory.unshift(display);
+  if (STATE.eventHistory.length > 100) STATE.eventHistory.length = 100;
+}
+
+// ---- AI年龄处理 ----
+function processAIAgingAndRetirement() {
+  const toRemove = [];
+  aiPlayers.forEach((ai, idx) => {
+    ai.age += 1;
+    const retired = applyAIAgeDecay(ai);
+    if (retired) {
+      addNews(`👋 AI退役`, `${ai.name}（${ai.age}岁）因年龄或能力下滑，宣布退役。`, '退役');
+      toRemove.push(idx);
+    }
+  });
+  toRemove.sort((a,b)=>b-a).forEach(idx => {
+    aiPlayers.splice(idx, 1);
+  });
+  while (aiPlayers.length < 20) {
+    const pool = STATE.gender === '男' ? MALE_PLAYERS : FEMALE_PLAYERS;
+    const available = pool.filter(p => !aiPlayers.some(ai => ai.name === p.name));
+    if (available.length === 0) break;
+    const newPlayer = pick(available);
+    const ovr = clamp(65 + rint(0, 25), 65, 92);
+    const age = rint(19, 25);
+    aiPlayers.push({
+      name: newPlayer.name,
+      country: newPlayer.country,
+      gender: STATE.gender,
+      ovr: ovr,
+      age: age,
+      points: 0,
+    });
+    addNews(`🌟 新星登场`, `${newPlayer.name}（${age}岁）加入职业赛场，OVR ${ovr}。`, '新秀');
+  }
+}
+
+// ---- 休赛期准备 ----
+function prepareGrowth(){
+  STATE.age++;
+  const userRetired = applyUserAgeDecay();
+  if (userRetired) {
+    STATE.step = 'retired';
+    render();
+    return;
+  }
+  processAIAgingAndRetirement();
+  updateWorldRank();
+
+  STATE.remainingPoints = 5;
+  STATE.tempAllocated = {};
+  STATE.step = 'allocation';
+  render();
+}
+
+// ---- 模拟本赛季剩余全部比赛 ----
+function simulateRemainingSeason() {
+  const remaining = STATE.tournaments.filter(t => !t.played);
+  if (remaining.length === 0) {
+    if (STATE.tournaments.every(t => t.played)) {
+      finishSeason();
+    }
+    render();
+    return;
+  }
+
+  let safety = 0;
+  while (!STATE.tournaments.every(t => t.played) && safety < 100) {
+    safety++;
+    const result = simulateOneTournament();
+    if (result === null) {
+      continue;
+    }
+    if (STATE.step === 'seasonSummary' || STATE.step === 'offseason' || STATE.step === 'allocation' || STATE.step === 'retired') {
+      break;
+    }
+  }
+  if (STATE.tournaments.every(t => t.played) && STATE.step !== 'seasonSummary' && STATE.step !== 'offseason' && STATE.step !== 'allocation' && STATE.step !== 'retired') {
+    finishSeason();
+  }
+  render();
+}
+
+// ---- 渲染函数 ----
+function header(){
+  const el = document.getElementById('sub-header-info');
+  if(el){
+    el.innerText = `${STATE.seasonYear}赛季 | ${STATE.age}岁 | 生涯${STATE.careerSeason}年 | ${STATE.country} | 排名#${STATE.worldRank||'—'} | OVR ${STATE.finalOVR||'—'}`;
+  }
+}
+
+function render(){
+  header();
+  const map = {
+    create: renderCreate,
+    build: renderBuild,
+    reveal: renderReveal,
+    dashboard: renderDashboard,
+    tournamentResult: renderTournamentResult,
+    seasonSummary: renderSeasonSummary,
+    offseason: renderOffseason,
+    retired: renderRetired,
+    allocation: renderAllocation,
+    news: renderNews,
+    honors: renderHonors,
+    rankings: renderRankings
+  };
+  const badge = document.getElementById('header-badge');
+  if(badge){
+    const labels = { create:'创建', build:'抽签', reveal:'揭幕', dashboard:'主页', tournamentResult:'战报', seasonSummary:'赛季总结', offseason:'休赛期', retired:'退役', allocation:'加点', news:'新闻', honors:'荣誉', rankings:'排名' };
+    badge.innerText = labels[STATE.step] || '游戏';
+  }
+  const main = document.getElementById('main-content');
+  if(main){
+    try{
+      main.innerHTML = (map[STATE.step] || renderDashboard)();
+    }catch(e){
+      console.error(e);
+      main.innerHTML = `<div class="p-6 text-center"><h3 class="text-lg font-bold text-red-600">渲染异常</h3><p class="text-xs text-slate-500 mt-2">${e.message}</p><button onclick="STATE.step='dashboard';render();" class="mt-3 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold">返回主页</button></div>`;
+    }
+  }
+}
+
+// ---- 创建页面 ----
+function renderCreate(){
+  const countryOptions = COUNTRIES.map(c => `<option value="${c}" ${c===STATE.country?'selected':''}>${c}</option>`).join('');
+  return `<div class="space-y-4"><div class="text-center"><h2 class="text-xl font-black">🏸 创建你的羽毛球选手</h2><p class="text-xs text-slate-500 mt-1">BWF世界巡回赛 · 19岁开启传奇</p></div>
+  <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200"><div class="flex items-center gap-2"><span class="text-lg">📖</span><b class="text-sm text-emerald-900">创建说明</b></div><div class="mt-3 space-y-2 text-xs text-slate-700"><div><b>① 起名</b></div><div><b>② 选择性别</b>（男/女单打）</div><div><b>③ 选择代表国家</b></div><div><b>④ 属性抽签</b>（从历史巨星模板中抽取）</div></div></div>
+  <input id="nameInput" value="${STATE.playerName}" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold bg-slate-50" placeholder="选手姓名">
+  <div class="flex gap-4 justify-center"><label class="flex items-center gap-2"><input type="radio" name="gender" value="男" ${STATE.gender==='男'?'checked':''} onchange="STATE.gender='男';render()"> 男单</label><label class="flex items-center gap-2"><input type="radio" name="gender" value="女" ${STATE.gender==='女'?'checked':''} onchange="STATE.gender='女';render()"> 女单</label></div>
+  <div><label class="block text-sm font-medium text-slate-700 mb-1">代表国家</label>
+    <select id="countrySelect" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm bg-slate-50">${countryOptions}</select>
+  </div>
+  <button onclick="beginBuild()" class="w-full bg-gradient-to-r from-emerald-700 to-green-600 text-white font-bold py-3.5 rounded-xl">开始属性抽签 →</button></div>`;
+}
+
+function beginBuild(){
+  const n = document.getElementById('nameInput')?.value.trim();
+  if(n) STATE.playerName = n;
+  const countrySelect = document.getElementById('countrySelect');
+  if(countrySelect) STATE.country = countrySelect.value;
+  STATE.step = 'build';
+  STATE.currentAttrIndex = 0;
+  STATE.attrs = {speed:50, power:50, stamina:50, technique:50, mental:50, agility:50, reflex:50};
+  STATE.rerollsLeft = 3;
+  render();
+}
+
+function renderBuild(){
+  const key = ATTR_KEYS[STATE.currentAttrIndex];
+  const cnKey = getAttrCN(key);
+  let candidates = HISTORICAL_STARS.filter(s => s.gender === STATE.gender);
+  candidates = shuffle(candidates).slice(0, 6);
+  if(candidates.length===0) candidates = shuffle([...HISTORICAL_STARS]).slice(0,6);
+
+  return `<div><div class="mb-4"><h2 class="font-black text-lg">属性抽签：<span class="text-emerald-600">${cnKey}</span></h2><p class="text-xs text-slate-500 mt-1">从${STATE.gender}单打历史巨星中选择</p></div>
+  <div class="space-y-2">${candidates.map((s,i) => {
+    let val = s.attrs[key];
+    if(val===undefined || val===null) val = 50;
+    const lowered = Math.round(clamp(val * 0.78 + rint(-1, 3), 48, 80));
+    return `<div class="flex justify-between items-center p-3 rounded-xl border border-slate-200 bg-slate-50"><div><b class="text-sm">${s.name}</b><div class="text-xs text-emerald-600 mt-1">${cnKey}：<b>${lowered}</b> (原${val})</div></div><button onclick='pickAttr(${JSON.stringify(s)}, "${key}", ${lowered})' class="bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-lg">锁定</button></div>`;
+  }).join('')}</div>
+  <button onclick="rerollBuild()" class="w-full mt-3 py-2.5 rounded-xl bg-slate-200 text-xs font-semibold">🔄 换一批（剩余 ${STATE.rerollsLeft} 次）</button></div>`;
+}
+
+function pickAttr(star, key, loweredVal){
+  STATE.attrs[key] = loweredVal;
+  STATE.currentAttrIndex++;
+  if(STATE.currentAttrIndex >= ATTR_KEYS.length){
+    STATE.finalOVR = calcOVR(STATE.attrs);
+    STATE.step = 'reveal';
+  }
+  render();
+}
+
+function rerollBuild(){
+  if(STATE.rerollsLeft > 0){ STATE.rerollsLeft--; render(); }
+  else alert('没有刷新次数了。');
+}
+
+function renderReveal(){
+  return `<div class="text-center py-8"><div class="text-7xl font-black text-emerald-600">${STATE.finalOVR}</div><div class="uppercase tracking-widest text-xs text-slate-500 mt-2">${STATE.playerName} · ${STATE.gender}单打 · OVR</div>
+  <div class="grid grid-cols-3 gap-2 mt-6">${ATTR_KEYS.map(k => `<div class="stat-box"><div class="text-[10px] text-slate-500">${getAttrCN(k)}</div><b class="text-sm">${STATE.attrs[k]}</b></div>`).join('')}</div>
+  <div class="mt-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-sm">代表国家：${STATE.country}</div>
+  <button onclick="startCareer()" class="w-full mt-6 bg-emerald-600 text-white font-bold py-3 rounded-xl">🏸 开始职业生涯</button></div>`;
+}
+
+function startCareer(){
+  initAIPlayers(STATE.gender);
+  addNews(`🇨🇳 代表${STATE.country}出战`, `${STATE.playerName} 代表${STATE.country}国家队，开启BWF巡回赛。`, '国家队');
+  STATE.step = 'dashboard';
+  STATE.tournaments = getSeasonTournaments();
+  STATE.tournamentIndex = 0;
+  initNamePools();
+  render();
+}
+
+// ---- 仪表盘 ----
+function renderDashboard(){
+  const t = STATE.tournaments || [];
+  const played = t.filter(t=>t.played).length;
+  const total = t.length || 16;
+  const winRate = STATE.seasonStats.gp>0 ? Math.round((STATE.seasonStats.wins/STATE.seasonStats.gp)*100) : 0;
+  const next = t.find(t=>!t.played);
+  const tourneyList = t.map((tn, idx) => {
+    const status = tn.played ? (tn.result?.champion ? '🏆冠军' : ` ${ROUND_NAMES[tn.result?.bestRound]||'?'}`) : '⏳待赛';
+    const isNext = !tn.played && idx === t.findIndex(t=>!t.played);
+    return `<div class="flex justify-between items-center p-2 border-b border-slate-100 text-xs ${isNext?'bg-emerald-50 border-emerald-200':''}"><span class="${isNext?'font-bold text-emerald-700':''}">${tn.name}</span><span class="text-slate-500">${tn.tier}</span><span class="${tn.played && tn.result?.champion ? 'text-amber-600 font-bold' : 'text-slate-400'}">${status}</span></div>`;
+  }).join('');
+  const hasInjury = STATE.userInjury && STATE.userInjury.gamesOut > 0;
+  const buttonAction = next ? 'playNextTournament()' : 'finishSeason()';
+  const buttonText = next ? `🏸 参加 ${next.name}` : '✅ 赛季结束，查看结算';
+  return `<div class="space-y-4">
+  <div class="grid grid-cols-2 gap-2">
+    <div class="p-4 bg-slate-50 rounded-xl border"><div class="text-xs text-slate-500">我的选手</div><div class="font-black text-lg">${STATE.playerName}</div><div class="text-xs text-emerald-600">${STATE.gender}单打 · OVR ${STATE.finalOVR}</div>${hasInjury?`<div class="text-xs text-red-600 mt-1 font-bold">🚑 ${STATE.userInjury.name}：休战${STATE.userInjury.gamesOut}场</div>`:''}</div>
+    <div class="p-4 bg-slate-50 rounded-xl border"><div class="text-xs text-slate-500">国家</div><div class="font-black text-lg">${STATE.country}</div><div class="text-xs text-emerald-600">排名 #${STATE.worldRank||'—'}</div><div class="text-xs text-slate-400 mt-1">积分 ${STATE.rankPoints||0}</div></div>
+  </div>
+  <div class="text-xs font-bold text-slate-500 px-1">📊 赛季数据 (${STATE.seasonStats.gp||0}场)</div>
+  <div class="grid grid-cols-4 gap-1.5">
+    <div class="stat-box"><div class="text-[10px] text-slate-500">胜场</div><b>${STATE.seasonStats.wins||0}</b></div>
+    <div class="stat-box"><div class="text-[10px] text-slate-500">负场</div><b>${STATE.seasonStats.losses||0}</b></div>
+    <div class="stat-box"><div class="text-[10px] text-slate-500">胜率</div><b>${winRate}%</b></div>
+    <div class="stat-box"><div class="text-[10px] text-slate-500">冠军</div><b>${STATE.seasonStats.titles||0}</b></div>
+  </div>
+  <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200">
+    <div class="font-bold text-sm mb-2">📅 ${STATE.seasonYear} 赛季进度</div>
+    <div class="text-xs text-slate-600 mb-3">已完赛 ${played}/${total} 站</div>
+    <div class="w-full h-2 bg-white rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width:${played/total*100}%"></div></div>
+    ${next ? `<div class="mt-3 text-xs text-emerald-700 font-bold">⏳ 下一站：${next.name}（${next.tier}）</div>` : `<div class="mt-3 text-xs text-amber-600 font-bold">✅ 本赛季所有赛事已完成！</div>`}
+  </div>
+  <div class="border rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+    <div class="bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">🏸 赛事日历</div>
+    ${tourneyList}
+  </div>
+  <div class="space-y-2">
+    <button onclick="${buttonAction}" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl">
+      ${buttonText}
+    </button>
+    <button onclick="simulateRemainingSeason()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl">⚡ 模拟本赛季全部比赛</button>
+    <button onclick="STATE.step='rankings';render()" class="w-full bg-blue-50 border border-blue-200 font-semibold py-2.5 rounded-xl text-sm">📊 世界排名</button>
+    <button onclick="STATE.step='news';render()" class="w-full bg-slate-100 border border-slate-200 font-semibold py-2.5 rounded-xl text-sm">📰 新闻 (${STATE.news?.length||0})</button>
+    <button onclick="STATE.step='honors';render()" class="w-full bg-slate-100 border border-slate-200 font-semibold py-2.5 rounded-xl text-sm">🏆 荣誉殿堂</button>
+    <button onclick="retireCareer()" class="w-full bg-slate-100 border border-slate-200 font-semibold py-2.5 rounded-xl text-sm text-red-500">🛑 退役</button>
+  </div>
+  ${renderEventFeed()}
+  </div>`;
+}
+
+function renderEventFeed(){
+  const events = (STATE.eventHistory||[]).slice(0,4);
+  if(!events.length) return `<div class="p-3 rounded-xl border border-indigo-200 bg-indigo-50/50 text-xs text-slate-500">📰 暂无事件</div>`;
+  const rows = events.map(e => `<div class="p-2 rounded-lg border border-indigo-100 bg-white text-xs mb-1.5"><div class="flex justify-between"><span class="font-bold text-indigo-700">${e.target} · ${e.title}</span><span class="text-slate-400">${e.detail?.slice(0,20)}...</span></div><div class="text-emerald-600 mt-0.5">${e.impact}</div></div>`).join('');
+  return `<div class="p-3 rounded-xl border border-indigo-200 bg-indigo-50/50"><div class="mb-1 text-xs font-bold text-indigo-700">📰 最近事件</div>${rows}</div>`;
+}
+
+function playNextTournament(){
+  if (Math.random() < 0.15) triggerRandomEvent();
+  simulateTournament();
+}
+
+function renderTournamentResult(){
+  const t = STATE.currentTournament;
+  if(!t || !t.result){ STATE.step='dashboard'; render(); return; }
+  const r = t.result;
+  const isChampion = r.champion === STATE.playerName;
+  const matches = r.matches || [];
+  return `<div class="text-center py-4"><div class="text-xs text-slate-500">${t.tier} · ${t.name}</div>
+  <h2 class="text-2xl font-black mt-1 ${isChampion?'text-amber-600':'text-slate-700'}">${isChampion ? '🏆 冠军！' : `止步 ${ROUND_NAMES[r.bestRound]||'首轮'}`}</h2>
+  <div class="text-xs text-emerald-600 mt-2">+${r.points} 积分</div>
+  <div class="mt-4 space-y-1.5 text-left">${matches.map((m,i) => `<div class="p-2.5 rounded-lg border ${m.won ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'} text-xs flex justify-between"><span>${m.roundName} vs ${m.opponent} (${m.country})${m.isStar ? ' ⭐' : ''}</span><span class="${m.won?'text-emerald-600':'text-red-600'}">${m.won?'✅ 胜':'❌ 负'} ${m.score}</span></div>`).join('')}</div>
+  <button onclick="STATE.step='dashboard';render()" class="w-full mt-4 bg-emerald-600 text-white font-bold py-3 rounded-xl">返回主页</button></div>`;
+}
+
+// ---- 赛季总结 ----
+function renderSeasonSummary(){
+  const s = STATE.seasonSummary || {};
+  const winRate = s.gp > 0 ? Math.round((s.wins / s.gp) * 100) : 0;
+  return `<div class="text-center py-6"><h2 class="text-2xl font-black">📊 ${s.year} 赛季总结</h2>
+  <div class="grid grid-cols-2 gap-3 mt-4 p-4 bg-slate-50 rounded-xl border">
+    <div class="text-center"><div class="text-xs text-slate-500">总比赛</div><div class="text-xl font-bold">${s.gp||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">胜场</div><div class="text-xl font-bold text-emerald-600">${s.wins||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">负场</div><div class="text-xl font-bold text-red-500">${s.losses||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">胜率</div><div class="text-xl font-bold">${winRate}%</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">冠军数</div><div class="text-xl font-bold text-amber-600">${s.titles||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">赛季积分</div><div class="text-xl font-bold">${s.points||0}</div></div>
+    <div class="text-center col-span-2"><div class="text-xs text-slate-500">最终世界排名</div><div class="text-2xl font-bold text-emerald-600">#${s.rank||'—'}</div></div>
+  </div>
+  <p class="text-xs text-slate-500 mt-4">积分将在休赛期衰减，排名可能变动</p>
+  <button onclick="goToOffseason()" class="w-full mt-6 bg-emerald-600 text-white font-bold py-3 rounded-xl">⏩ 进入休赛期</button></div>`;
+}
+
+// ---- 休赛期与加点 ----
+function renderOffseason(){
+  prepareGrowth();
+  return '';
+}
+
+function renderAllocation(){
+  return `<div><div class="text-center mb-4"><h2 class="text-xl font-black">⚡ 休赛期训练成长</h2><p class="text-xs text-slate-500">剩余：<b class="text-emerald-600">${STATE.remainingPoints}</b> 点</p></div>
+  <div class="space-y-2">${ATTR_KEYS.map(k => { const v = STATE.attrs[k]||50; const a = STATE.tempAllocated[k]||0; return `<div class="flex justify-between items-center p-3 bg-slate-50 border rounded-xl"><div><b class="text-sm">${getAttrCN(k)}</b><div class="text-xs text-emerald-600">当前 ${v}${a ? ` <span class="text-green-600">(+${a})</span>` : ''}</div></div><div class="flex items-center gap-2"><button onclick="subPoint('${k}')" class="w-7 h-7 rounded-lg bg-slate-200">−</button><b>${v+a}</b><button onclick="addPoint('${k}')" class="w-7 h-7 rounded-lg bg-emerald-600 text-white">+</button></div></div>`}).join('')}</div>
+  <button onclick="confirmGrowth()" class="w-full mt-4 bg-emerald-600 text-white font-bold py-3 rounded-xl">✅ 确认成长，进入下一赛季</button>
+  <button onclick="skipGrowth()" class="w-full mt-2 bg-slate-100 border font-semibold py-3 rounded-xl">⏩ 跳过成长（不推荐）</button></div>`;
+}
+
+function addPoint(k){
+  if(STATE.remainingPoints > 0 && STATE.attrs[k] < 99){
+    STATE.tempAllocated[k] = (STATE.tempAllocated[k]||0) + 1;
+    STATE.remainingPoints--;
+    render();
+  }
+}
+function subPoint(k){
+  if((STATE.tempAllocated[k]||0) > 0){
+    STATE.tempAllocated[k]--;
+    STATE.remainingPoints++;
+    render();
+  }
+}
+function confirmGrowth(){
+  ATTR_KEYS.forEach(k => {
+    const add = STATE.tempAllocated[k] || 0;
+    if(add>0) STATE.attrs[k] = clamp(STATE.attrs[k] + add, 1, 99);
+  });
+  STATE.finalOVR = calcOVR(STATE.attrs);
+  STATE.tempAllocated = {};
+  STATE.careerSeason++;
+  STATE.seasonYear++;
+  STATE.seasonStats = {gp:0, wins:0, losses:0, titles:0, points:0, rank:999};
+  STATE.tournaments = getSeasonTournaments();
+  STATE.tournamentIndex = 0;
+  STATE.userInjury = {gamesOut:0, name:'', detail:'', ovrDrop:0};
+  STATE.userInjuryEventsThisSeason = 0;
+  STATE.seasonEventsTriggered = 0;
+  STATE.eventHistory = [];
+  addNews(`📅 ${STATE.seasonYear} 新赛季`, `${STATE.playerName} 第${STATE.careerSeason}赛季，年龄${STATE.age}，OVR ${STATE.finalOVR}`, '赛季');
+  STATE.step = 'dashboard';
+  render();
+}
+
+function skipGrowth(){
+  STATE.careerSeason++;
+  STATE.seasonYear++;
+  STATE.seasonStats = {gp:0, wins:0, losses:0, titles:0, points:0, rank:999};
+  STATE.tournaments = getSeasonTournaments();
+  STATE.tournamentIndex = 0;
+  STATE.userInjury = {gamesOut:0, name:'', detail:'', ovrDrop:0};
+  STATE.userInjuryEventsThisSeason = 0;
+  STATE.seasonEventsTriggered = 0;
+  STATE.eventHistory = [];
+  addNews(`📅 ${STATE.seasonYear} 新赛季`, `${STATE.playerName} 第${STATE.careerSeason}赛季`, '赛季');
+  STATE.step = 'dashboard';
+  render();
+}
+
+// ---- 退役 ----
+function retireCareer(){
+  STATE.step = 'retired';
+  render();
+}
+
+// ---- 生涯类比函数 ----
+function getPlayerAnalogy(gender, titles, super1000, weeksAtNo1, winRate) {
+  const norm = (val, min, max) => clamp((val - min) / (max - min), 0, 1);
+  const prototypes = gender === '男' ? [
+    { name: '林丹', desc: '羽坛GOAT，统治力无与伦比', titles:150, super1000:30, weeks:200, winRate:90 },
+    { name: '李宗伟', desc: '悲情英雄，世界第一周数极长', titles:90, super1000:15, weeks:180, winRate:88 },
+    { name: '谌龙', desc: '稳定输出，大赛型选手', titles:65, super1000:12, weeks:60, winRate:82 },
+    { name: '安赛龙', desc: '当代统治者，进攻犀利', titles:60, super1000:18, weeks:60, winRate:84 },
+    { name: '桃田贤斗', desc: '巅峰期无敌，但生涯短暂', titles:50, super1000:12, weeks:60, winRate:86 },
+    { name: '石宇奇', desc: '技术流，伤病影响巅峰', titles:35, super1000:6, weeks:30, winRate:75 },
+    { name: '李诗沣', desc: '新生代希望，潜力巨大', titles:20, super1000:3, weeks:15, winRate:68 },
+    { name: '金廷', desc: '暴力进攻，但稳定性稍欠', titles:40, super1000:8, weeks:40, winRate:72 },
+    { name: '乔纳坦', desc: '全能型，但缺乏顶级荣誉', titles:30, super1000:5, weeks:20, winRate:70 }
+  ] : [
+    { name: '张宁', desc: '两届奥运冠军，大心脏', titles:85, super1000:15, weeks:80, winRate:82 },
+    { name: '戴资颖', desc: '天才少女，世界第一周数纪录', titles:70, super1000:12, weeks:180, winRate:86 },
+    { name: '马林', desc: '三届世锦赛冠军，暴力打法', titles:55, super1000:10, weeks:40, winRate:80 },
+    { name: '陈雨菲', desc: '奥运冠军，新一代领军人物', titles:45, super1000:8, weeks:30, winRate:76 },
+    { name: '山口茜', desc: '跑不死的小马达，稳定性高', titles:38, super1000:6, weeks:60, winRate:75 },
+    { name: '奥原希望', desc: '韧性十足，防守反击', titles:28, super1000:4, weeks:30, winRate:70 },
+    { name: '辛杜', desc: '大赛型选手，世锦赛冠军', titles:30, super1000:5, weeks:20, winRate:68 },
+    { name: '因达农', desc: '天才少女，但起伏较大', titles:25, super1000:3, weeks:15, winRate:65 }
+  ];
+
+  const maxT = 200, minT = 0;
+  const maxS = 50, minS = 0;
+  const maxW = 300, minW = 0;
+  const maxWR = 100, minWR = 0;
+
+  let best = null;
+  let bestDist = Infinity;
+
+  prototypes.forEach(p => {
+    const dT = Math.pow(norm(titles, minT, maxT) - norm(p.titles, minT, maxT), 2);
+    const dS = Math.pow(norm(super1000, minS, maxS) - norm(p.super1000, minS, maxS), 2);
+    const dW = Math.pow(norm(weeksAtNo1, minW, maxW) - norm(p.weeks, minW, maxW), 2);
+    const dWR = Math.pow(norm(winRate, minWR, maxWR) - norm(p.winRate, minWR, maxWR), 2);
+    const dist = dT*0.3 + dS*0.3 + dW*0.25 + dWR*0.15;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = p;
+    }
+  });
+
+  return best;
+}
+
+function renderRetired(){
+  const c = STATE.careerStats;
+  const h = getHistoricalLegacy();
+  const totalGames = c.gp || 0;
+  const totalWins = c.wins || 0;
+  const totalLosses = c.losses || 0;
+  const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+
+  const analogy = getPlayerAnalogy(STATE.gender, c.titles, c.super1000, c.weeksAtNo1, winRate);
+
+  return `<div class="text-center py-5"><h2 class="text-xl font-black">🏛️ 传奇落幕</h2><p class="text-xs text-slate-500 mt-2">${STATE.playerName} 在${STATE.age}岁退役，共${STATE.careerSeason}赛季。</p>
+  <div class="grid grid-cols-2 gap-2 mt-5 text-left p-4 bg-slate-50 border rounded-xl text-xs">
+    <div>总比赛：<b>${totalGames}</b></div><div>胜场：<b>${totalWins}</b></div>
+    <div>负场：<b>${totalLosses}</b></div><div>胜率：<b>${winRate}%</b></div>
+    <div>冠军总数：<b>${c.titles||0}</b></div><div>超级1000：<b>${c.super1000||0}</b></div>
+    <div>超级750：<b>${c.super750||0}</b></div><div>超级500：<b>${c.super500||0}</b></div>
+    <div>超级300：<b>${c.super300||0}</b></div><div>世界第一周数：<b>${c.weeksAtNo1||0}</b></div>
+    <div>总奖金：<b>$${(c.careerPrize||0)}万</b></div><div>最高排名：<b>#${c.bestRank||'—'}</b></div>
+  </div>
+  <div class="mt-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-left">
+    <div class="font-black text-base">👑 历史地位评价</div>
+    <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+      <div class="bg-white/70 rounded-lg p-2"><span class="text-slate-500">历史档位</span><br><b>${h.tier}</b></div>
+      <div class="bg-white/70 rounded-lg p-2"><span class="text-slate-500">生涯评价</span><br><b>${h.grade}</b></div>
+      <div class="bg-white/70 rounded-lg p-2"><span class="text-slate-500">性别</span><br><b>${STATE.gender}单打</b></div>
+      <div class="bg-white/70 rounded-lg p-2"><span class="text-slate-500">生涯巅峰</span><br><b>OVR ${h.peakOvr||STATE.finalOVR}</b></div>
+    </div>
+    <div class="mt-3 text-xs leading-6 text-slate-700">${h.evalText}</div>
+    <div class="mt-2 text-[11px] text-emerald-700">主要成就：${h.strengths}</div>
+    ${analogy ? `<div class="mt-3 p-2 bg-emerald-100 rounded-lg text-xs"><span class="font-bold">🏸 生涯类比：</span><span class="font-semibold">${analogy.name}</span> — ${analogy.desc}</div>` : ''}
+  </div>
+  <p class="text-[10px] text-slate-400 mt-3">历史地位基于生涯数据、冠军荣誉、排名表现自动生成。</p>
+  <button onclick="resetGame()" class="w-full mt-5 bg-emerald-600 text-white font-bold py-3 rounded-xl">🔄 新生涯</button></div>`;
+}
+
+function getHistoricalLegacy(){
+  const c = STATE.careerStats;
+  const titles = c.titles||0, wins=c.wins||0, gp=c.gp||0, winRate=gp>0?wins/gp:0;
+  const super1000 = c.super1000||0, weeks = c.weeksAtNo1||0;
+  const score = titles*2.5 + super1000*1.8 + weeks*0.3 + winRate*30;
+  let tier, grade, strengths=[], evalText;
+  if(score>=60 || titles>=15 || super1000>=8){
+    tier='🏆 羽坛传奇'; grade='历史顶级巨星';
+    strengths=[`${titles}冠`, `${super1000}个超级1000`, `${weeks}周世界第一`];
+    evalText='他是羽毛球历史上最伟大的选手之一。';
+  } else if(score>=35 || titles>=8 || super1000>=4){
+    tier='🌟 世界级巨星'; grade='羽坛名将';
+    strengths=[`${titles}冠`, `${super1000}个超级1000`, `胜率${Math.round(winRate*100)}%`];
+    evalText='他是一位世界级的羽毛球选手，拥有辉煌的职业生涯。';
+  } else if(score>=18 || titles>=3 || super1000>=1){
+    tier='🏅 国际级选手'; grade='巡回赛冠军级';
+    strengths=[`${titles}冠`, `${super1000}个超级1000`, `最高排名#${c.bestRank||STATE.worldRank}`];
+    evalText='他是一位出色的国际级选手，在BWF巡回赛中取得了不俗的成就。';
+  } else {
+    tier='🎯 职业选手'; grade='巡回赛常客';
+    strengths=[`${titles}冠`, `胜率${Math.round(winRate*100)}%`];
+    evalText='他是一位勤奋的职业选手，在羽毛球赛场上留下了自己的足迹。';
+  }
+  return { tier, grade, strengths: strengths.join('、') || '稳定的职业生涯', evalText, typeRank: `${STATE.gender}单打选手`, peakOvr: STATE.finalOVR };
+}
+
+// ---- 排名页面 ----
+function renderRankings(){
+  const ranks = STATE.worldRankings || [];
+  const myRank = STATE.worldRank;
+  return `<div><h2 class="text-xl font-black mb-4">📊 世界排名</h2>
+  <div class="max-h-[60vh] overflow-y-auto border rounded-xl">
+    <table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2 text-left">排名</th><th class="p-2 text-left">选手</th><th class="p-2 text-right">积分</th></tr></thead>
+    <tbody>${ranks.slice(0,20).map((r,i) => `<tr class="${r.isUser?'bg-emerald-50 font-bold':i%2?'bg-slate-50':''}"><td class="p-2">${r.rank}</td><td class="p-2">${r.name} ${r.isUser?'⭐':''}</td><td class="p-2 text-right">${r.points}</td></tr>`).join('')}</tbody></table>
+  </div>
+  <div class="mt-2 text-xs text-slate-500">当前你的排名：<b class="text-emerald-600">#${myRank}</b>，积分 ${STATE.rankPoints}</div>
+  <button onclick="STATE.step='dashboard';render()" class="w-full mt-4 bg-slate-100 border font-semibold py-3 rounded-xl">返回</button></div>`;
+}
+
+// ---- 新闻与荣誉 ----
+function renderNews(){
+  const news = STATE.news || [];
+  const rows = news.map(n => `<div class="news-card p-3 rounded-xl border border-slate-200 bg-slate-50 mb-2"><div class="flex justify-between text-[10px] text-slate-400"><span>${n.type||'新闻'}</span><span>${n.time||''}</span></div><div class="font-bold text-sm mt-1">${n.title}</div><div class="text-xs text-slate-600 mt-1">${n.body}</div></div>`).join('') || '<div class="text-center text-slate-400 text-sm py-6">暂无新闻</div>';
+  return `<div><h2 class="text-xl font-black mb-4">📰 新闻中心</h2><div class="max-h-[60vh] overflow-y-auto">${rows}</div><button onclick="STATE.step='dashboard';render()" class="w-full mt-4 bg-slate-100 border font-semibold py-3 rounded-xl">返回</button></div>`;
+}
+
+function renderHonors(){
+  const c = STATE.careerStats;
+  return `<div><h2 class="text-xl font-black mb-4">🏆 荣誉殿堂</h2>
+  <div class="grid grid-cols-2 gap-3 p-4 bg-slate-50 rounded-xl border">
+    <div class="text-center"><div class="text-xs text-slate-500">总冠军</div><div class="text-2xl font-black text-amber-600">${c.titles||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">超级1000</div><div class="text-2xl font-black text-emerald-600">${c.super1000||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">超级750</div><div class="text-xl font-black">${c.super750||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">超级500</div><div class="text-xl font-black">${c.super500||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">超级300</div><div class="text-xl font-black">${c.super300||0}</div></div>
+    <div class="text-center"><div class="text-xs text-slate-500">世界第一周数</div><div class="text-xl font-black">${c.weeksAtNo1||0}</div></div>
+    <div class="text-center col-span-2"><div class="text-xs text-slate-500">总奖金</div><div class="text-xl font-black text-amber-600">$${(c.careerPrize||0)}万</div></div>
+  </div>
+  <button onclick="STATE.step='dashboard';render()" class="w-full mt-4 bg-slate-100 border font-semibold py-3 rounded-xl">返回</button></div>`;
+}
+
+// ---- 初始化 ----
+(function init(){
+  STATE = clone(INITIAL_STATE);
+  STATE.step = 'create';
+  STATE.tournaments = getSeasonTournaments();
+  initNamePools();
+  aiPlayers = [];
+  render();
+})();
+
+// 全局暴露
+window.pickAttr = pickAttr;
+window.rerollBuild = rerollBuild;
+window.beginBuild = beginBuild;
+window.startCareer = startCareer;
+window.playNextTournament = playNextTournament;
+window.simulateRemainingSeason = simulateRemainingSeason;
+window.goToOffseason = goToOffseason;
+window.confirmGrowth = confirmGrowth;
+window.skipGrowth = skipGrowth;
+window.retireCareer = retireCareer;
+window.resetGame = resetGame;
+window.addPoint = addPoint;
+window.subPoint = subPoint;
+</script>
+</body>
+</html>
